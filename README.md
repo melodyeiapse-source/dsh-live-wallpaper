@@ -54,7 +54,7 @@ __dshwp.import(json)          // 导入配置
 ## 开发
 
 ```sh
-git clone https://github.com/YOURNAME/dsh-live-wallpaper.git
+git clone https://github.com/melodyeiapse-source/dsh-live-wallpaper.git
 cd dsh-live-wallpaper
 npm install          # 只装测试用的 jsdom / react
 npm test             # 165 条 jsdom 断言

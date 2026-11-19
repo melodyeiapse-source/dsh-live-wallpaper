@@ -35,12 +35,12 @@
   "author": "dsh-live-wallpaper contributors",
   "repository": {
     "type": "git",
-    "url": "https://github.com/YOURNAME/dsh-live-wallpaper.git"
+    "url": "https://github.com/melodyeiapse-source/dsh-live-wallpaper.git"
   },
   "bugs": {
-    "url": "https://github.com/YOURNAME/dsh-live-wallpaper/issues"
+    "url": "https://github.com/melodyeiapse-source/dsh-live-wallpaper/issues"
   },
-  "homepage": "https://github.com/YOURNAME/dsh-live-wallpaper#readme",
+  "homepage": "https://github.com/melodyeiapse-source/dsh-live-wallpaper#readme",
   "keywords": [
     "dsh",
     "dsh-plugin",
