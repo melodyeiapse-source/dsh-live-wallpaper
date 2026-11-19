@@ -148,7 +148,7 @@ check('有本地上传按钮', /本地上传/.test(cardText))
 check('有启动动画分区', /启动动画/.test(cardText) && /上传启动素材/.test(cardText))
 check('有铺满检查', /铺满检查/.test(cardText))
 const fileInputs = document.querySelectorAll('#dshwp-card input[type=file]')
-check('六个文件选择器（壁纸/启动/音频/轮播/贴纸/配置）', fileInputs.length === 6, String(fileInputs.length))
+check('七个文件选择器（壁纸/文件管理器/启动/音频/轮播/贴纸/配置）', fileInputs.length === 7, String(fileInputs.length))
 check('accept 覆盖图片和视频', /image\/\*,video\/\*/.test(fileInputs[0].getAttribute('accept')))
 
 // 覆盖层模式
@@ -312,6 +312,7 @@ check('播放速度真的改到了', !!vEl2 && Number(vEl2.playbackRate) === 1.5
 const moodBtns = Array.from(document.querySelectorAll('#dshwp-card .wp-chip'))
 const cinema = moodBtns.find((b) => b.textContent === '影院')
 if (cinema) {
+  await wait(220) // 假的 mp4 会触发一次异步失败重试，等它落定再取基线
   const rBefore = window.__dshwp.rebuilds
   cinema.dispatchEvent(new window.MouseEvent('click', { bubbles: true }))
   await wait(60)
@@ -321,6 +322,13 @@ if (cinema) {
 } else {
   check('影院预设按钮存在', false)
 }
+
+// 内置预设：三套，程序当场画，不依赖上传
+const presetBtns = Array.from(document.querySelectorAll('#dshwp-card .wp-chip'))
+  .filter((b) => ['极光星夜', '霓虹夜', '秋色渐变'].indexOf(b.textContent) >= 0)
+check('三套内置预设按钮都在', presetBtns.length === 3, String(presetBtns.length))
+check('调试接口暴露预设列表', JSON.stringify(window.__dshwp.presets()) === JSON.stringify(['aurora', 'neon', 'autumn']),
+  JSON.stringify(window.__dshwp.presets()))
 
 // 轮播列表：单张移除 + 历史
 window.__dshwp.set({ introMode: 'off' })

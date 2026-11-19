@@ -2184,6 +2184,259 @@ html.dshwp-halo body{text-shadow:var(--wp-halo,none)}
       return 'image'
     }
 
+    // ---- 内置壁纸预设：全部程序生成，不需要上传、不涉及任何第三方素材 ----
+    const PRESET_W = 1080
+    const PRESET_H = 2400
+    const PRESETS = [
+      { id: 'aurora', cn: '极光星夜', en: 'Aurora night' },
+      { id: 'neon', cn: '霓虹夜', en: 'Neon night' },
+      { id: 'autumn', cn: '秋色渐变', en: 'Autumn glow' },
+    ]
+    function presetName(id) {
+      const p = PRESETS.filter((x) => x.id === id)[0]
+      return p ? T(p.cn, p.en) : id
+    }
+    function presetRnd(seed) {
+      let s = seed >>> 0 || 1
+      return () => {
+        s ^= s << 13; s >>>= 0
+        s ^= s >> 17
+        s ^= s << 5; s >>>= 0
+        return s / 4294967296
+      }
+    }
+    function presetCanvas(id) {
+      let cv
+      try {
+        cv = document.createElement('canvas')
+        cv.width = PRESET_W
+        cv.height = PRESET_H
+      } catch (e) { return null }
+      const g = cv.getContext && cv.getContext('2d')
+      if (!g) return null
+      const rnd = presetRnd(id === 'aurora' ? 20261119 : id === 'neon' ? 77031 : 51207)
+      if (id === 'neon') drawNeonPreset(g, rnd)
+      else if (id === 'autumn') drawAutumnPreset(g, rnd)
+      else drawAuroraPreset(g, rnd)
+      return cv
+    }
+    // 五裂叶剪影，给秋色渐变当飘落叶片（和粒子里的枫叶同一套意象）
+    function presetLeaf(g, x, y, r, rot, fill) {
+      g.save()
+      g.translate(x, y)
+      g.rotate(rot)
+      g.beginPath()
+      g.moveTo(0, r)
+      g.quadraticCurveTo(r * 0.30, r * 0.42, r * 0.62, r * 0.30)
+      g.quadraticCurveTo(r * 0.50, r * 0.06, r * 0.95, r * 0.10)
+      g.quadraticCurveTo(r * 0.80, -r * 0.16, r * 1.00, -r * 0.30)
+      g.quadraticCurveTo(r * 0.62, -r * 0.30, r * 0.40, -r * 0.52)
+      g.quadraticCurveTo(r * 0.34, -r * 0.28, r * 0.10, -r * 0.72)
+      g.quadraticCurveTo(0, -r * 0.42, -r * 0.10, -r * 0.72)
+      g.quadraticCurveTo(-r * 0.34, -r * 0.28, -r * 0.40, -r * 0.52)
+      g.quadraticCurveTo(-r * 0.62, -r * 0.30, -r * 1.00, -r * 0.30)
+      g.quadraticCurveTo(-r * 0.80, -r * 0.16, -r * 0.95, r * 0.10)
+      g.quadraticCurveTo(-r * 0.50, r * 0.06, -r * 0.62, r * 0.30)
+      g.quadraticCurveTo(-r * 0.30, r * 0.42, 0, r)
+      g.fillStyle = fill
+      g.fill()
+      g.restore()
+    }
+    function presetBlur(g, px) {
+      try { g.filter = 'blur(' + px + 'px)' } catch (e) {}
+      return () => { try { g.filter = 'none' } catch (e) {} }
+    }
+    function drawAuroraPreset(g, rnd) {
+      const W = PRESET_W, H = PRESET_H
+      const sky = g.createLinearGradient(W * 0.1, 0, W * 0.9, H)
+      sky.addColorStop(0, '#040a1c')
+      sky.addColorStop(0.42, '#0a1a3f')
+      sky.addColorStop(0.74, '#071226')
+      sky.addColorStop(1, '#02070f')
+      g.fillStyle = sky
+      g.fillRect(0, 0, W, H)
+      for (let i = 0; i < 340; i++) {
+        const x = rnd() * W, y = rnd() * H * 0.9, r = 0.5 + rnd() * 1.7
+        g.globalAlpha = 0.12 + rnd() * 0.7
+        g.fillStyle = rnd() > 0.86 ? '#cfe6ff' : '#eaf4ff'
+        g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill()
+      }
+      g.globalAlpha = 1
+      const resetBlur = presetBlur(g, 34)
+      g.globalCompositeOperation = 'lighter'
+      const bands = [
+        { base: 0.19, amp: 0.05, h: 0.15, c: ['rgba(60,240,190,0)', 'rgba(70,252,205,.78)', 'rgba(70,150,255,.5)', 'rgba(150,90,255,0)'] },
+        { base: 0.26, amp: 0.06, h: 0.045, c: ['rgba(160,255,240,0)', 'rgba(170,255,235,.85)', 'rgba(90,255,215,.3)', 'rgba(90,255,215,0)'] },
+        { base: 0.33, amp: 0.07, h: 0.20, c: ['rgba(90,200,255,0)', 'rgba(80,255,220,.5)', 'rgba(120,90,255,.55)', 'rgba(60,20,120,0)'] },
+        { base: 0.47, amp: 0.04, h: 0.11, c: ['rgba(120,255,200,0)', 'rgba(90,255,180,.38)', 'rgba(40,120,255,.26)', 'rgba(0,0,0,0)'] },
+      ]
+      for (let b = 0; b < bands.length; b++) {
+        const bd = bands[b]
+        const grd = g.createLinearGradient(0, H * (bd.base - bd.amp), 0, H * (bd.base + bd.h))
+        for (let i = 0; i < bd.c.length; i++) grd.addColorStop(i / (bd.c.length - 1), bd.c[i])
+        const ph = rnd() * 6.28, fr = 1.6 + rnd() * 2.4
+        g.beginPath()
+        g.moveTo(0, H * bd.base)
+        for (let x = 0; x <= W; x += 24) {
+          const t = x / W
+          const y = H * (bd.base + Math.sin(ph + t * Math.PI * fr) * bd.amp + Math.sin(ph * 2 + t * Math.PI * fr * 2.3) * bd.amp * 0.4)
+          g.lineTo(x, y)
+        }
+        for (let x = W; x >= 0; x -= 24) {
+          const t = x / W
+          const y = H * (bd.base + bd.h * 0.55 + Math.sin(ph + t * Math.PI * fr + 0.9) * bd.amp + Math.sin(ph * 2 + t * Math.PI * fr * 2.3) * bd.amp * 0.4)
+          g.lineTo(x, y)
+        }
+        g.closePath()
+        g.fillStyle = grd
+        g.fill()
+      }
+      resetBlur()
+      g.globalCompositeOperation = 'source-over'
+      const glow = g.createLinearGradient(0, H * 0.62, 0, H)
+      glow.addColorStop(0, 'rgba(10,30,60,0)')
+      glow.addColorStop(1, 'rgba(4,10,22,.85)')
+      g.fillStyle = glow
+      g.fillRect(0, H * 0.6, W, H * 0.4)
+      const vig = g.createRadialGradient(W * 0.5, H * 0.42, W * 0.25, W * 0.5, H * 0.42, H * 0.72)
+      vig.addColorStop(0, 'rgba(0,0,0,0)')
+      vig.addColorStop(1, 'rgba(0,0,0,.55)')
+      g.fillStyle = vig
+      g.fillRect(0, 0, W, H)
+    }
+    function drawNeonPreset(g, rnd) {
+      const W = PRESET_W, H = PRESET_H
+      const bg = g.createLinearGradient(0, 0, 0, H)
+      bg.addColorStop(0, '#0a0518')
+      bg.addColorStop(0.5, '#1a0a36')
+      bg.addColorStop(1, '#05030c')
+      g.fillStyle = bg
+      g.fillRect(0, 0, W, H)
+      g.globalCompositeOperation = 'lighter'
+      const blobs = [
+        [W * 0.22, H * 0.62, W * 0.55, 'rgba(255,60,180,.32)'],
+        [W * 0.80, H * 0.34, W * 0.5, 'rgba(60,200,255,.28)'],
+        [W * 0.5, H * 0.15, W * 0.6, 'rgba(140,80,255,.24)'],
+      ]
+      for (let i = 0; i < blobs.length; i++) {
+        const b = blobs[i]
+        const rg = g.createRadialGradient(b[0], b[1], 0, b[0], b[1], b[2])
+        rg.addColorStop(0, b[3])
+        rg.addColorStop(1, 'rgba(0,0,0,0)')
+        g.fillStyle = rg
+        g.fillRect(0, 0, W, H)
+      }
+      // 地平线落日
+      const horizon = H * 0.60
+      const sun = g.createLinearGradient(0, horizon - H * 0.16, 0, horizon)
+      sun.addColorStop(0, 'rgba(255,240,180,.85)')
+      sun.addColorStop(0.5, 'rgba(255,120,90,.7)')
+      sun.addColorStop(1, 'rgba(255,60,160,.15)')
+      g.fillStyle = sun
+      g.beginPath()
+      g.arc(W * 0.5, horizon, H * 0.085, Math.PI, 0)
+      g.closePath()
+      g.fill()
+      g.globalCompositeOperation = 'source-over'
+      // 网格
+      g.strokeStyle = 'rgba(110,230,255,.22)'
+      g.lineWidth = 2
+      for (let i = 0; i <= 18; i++) {
+        const t = i / 18
+        const y = horizon + Math.pow(t, 2.1) * (H - horizon) * 1.02
+        g.globalAlpha = 0.10 + t * 0.5
+        g.beginPath(); g.moveTo(0, y); g.lineTo(W, y); g.stroke()
+      }
+      for (let i = -9; i <= 9; i++) {
+        g.globalAlpha = 0.30
+        g.beginPath()
+        g.moveTo(W * 0.5 + i * W * 0.02, horizon)
+        g.lineTo(W * 0.5 + i * W * 0.30, H)
+        g.stroke()
+      }
+      g.globalAlpha = 1
+      const top = g.createLinearGradient(0, 0, 0, H)
+      top.addColorStop(0, 'rgba(4,2,10,.6)')
+      top.addColorStop(0.45, 'rgba(4,2,10,0)')
+      g.fillStyle = top
+      g.fillRect(0, 0, W, H)
+    }
+    function drawAutumnPreset(g, rnd) {
+      const W = PRESET_W, H = PRESET_H
+      const sky = g.createLinearGradient(0, 0, W * 0.35, H)
+      sky.addColorStop(0, '#2a1206')
+      sky.addColorStop(0.30, '#6b2a12')
+      sky.addColorStop(0.56, '#b8562a')
+      sky.addColorStop(0.78, '#e69a55')
+      sky.addColorStop(1, '#f7cd93')
+      g.fillStyle = sky
+      g.fillRect(0, 0, W, H)
+      g.globalCompositeOperation = 'lighter'
+      const sun = g.createRadialGradient(W * 0.58, H * 0.66, 0, W * 0.58, H * 0.66, H * 0.42)
+      sun.addColorStop(0, 'rgba(255,240,205,.85)')
+      sun.addColorStop(0.35, 'rgba(255,190,120,.35)')
+      sun.addColorStop(1, 'rgba(255,150,80,0)')
+      g.fillStyle = sun
+      g.fillRect(0, 0, W, H)
+      g.globalCompositeOperation = 'source-over'
+      const resetBlur = presetBlur(g, 26)
+      for (let i = 0; i < 7; i++) {
+        const y = H * (0.30 + rnd() * 0.6)
+        const hgt = 30 + rnd() * 90
+        const grd = g.createLinearGradient(0, y - hgt, 0, y + hgt)
+        grd.addColorStop(0, 'rgba(255,220,170,0)')
+        grd.addColorStop(0.5, 'rgba(255,215,160,' + (0.05 + rnd() * 0.09).toFixed(3) + ')')
+        grd.addColorStop(1, 'rgba(120,50,20,0)')
+        g.fillStyle = grd
+        g.fillRect(0, y - hgt, W, hgt * 2)
+      }
+      resetBlur()
+      const leaves = ['rgba(90,30,10,.28)', 'rgba(140,55,18,.24)', 'rgba(60,20,8,.22)', 'rgba(190,95,35,.20)']
+      for (let i = 0; i < 26; i++) {
+        presetLeaf(g, rnd() * W, rnd() * H, 26 + rnd() * 70, rnd() * 6.28, leaves[i % leaves.length])
+      }
+      for (let i = 0; i < 160; i++) {
+        g.globalAlpha = 0.10 + rnd() * 0.45
+        g.fillStyle = '#ffe4bd'
+        const r = 0.6 + rnd() * 2.2
+        g.beginPath(); g.arc(rnd() * W, rnd() * H, r, 0, Math.PI * 2); g.fill()
+      }
+      g.globalAlpha = 1
+      const vig = g.createRadialGradient(W * 0.5, H * 0.55, W * 0.3, W * 0.5, H * 0.55, H * 0.75)
+      vig.addColorStop(0, 'rgba(0,0,0,0)')
+      vig.addColorStop(1, 'rgba(30,8,2,.55)')
+      g.fillStyle = vig
+      g.fillRect(0, 0, W, H)
+    }
+    function presetBlob(id) {
+      return new Promise((resolve) => {
+        const cv = presetCanvas(id)
+        if (!cv) { resolve(null); return }
+        const fallback = () => {
+          try {
+            const d = cv.toDataURL('image/jpeg', 0.92)
+            const bin = atob(String(d).split(',')[1] || '')
+            const arr = new Uint8Array(bin.length)
+            for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i)
+            resolve(arr.length ? new Blob([arr], { type: 'image/jpeg' }) : null)
+          } catch (e) { resolve(null) }
+        }
+        if (typeof cv.toBlob === 'function') {
+          try { cv.toBlob((b) => (b ? resolve(b) : fallback()), 'image/jpeg', 0.92) } catch (e) { fallback() }
+        } else fallback()
+      })
+    }
+    async function applyPreset(id) {
+      const blob = await presetBlob(id)
+      if (!blob) return { ok: false, error: T('预设生成失败', 'Preset failed') }
+      let file
+      try { file = new File([blob], presetName(id) + '.jpg', { type: 'image/jpeg' }) } catch (e) {
+        file = blob
+        file.name = presetName(id) + '.jpg'
+      }
+      return setLocal(file)
+    }
+
     function buildMedia(src, kind) {
       bus.rebuilds = (bus.rebuilds || 0) + 1
       currentSrc = src
@@ -2869,6 +3122,7 @@ html.dshwp-halo body{text-shadow:var(--wp-halo,none)}
       }
       const [diag, setDiag] = React.useState(lastDiag)
       const fileRef = React.useRef(null)
+      const anyRef = React.useRef(null)
       const introRef = React.useRef(null)
       const audioRef = React.useRef(null)
       const multiRef = React.useRef(null)
@@ -2987,7 +3241,21 @@ html.dshwp-halo body{text-shadow:var(--wp-halo,none)}
         sec('g1', T('壁纸', 'Wallpaper'), true, [
         h('div', { className: 'wp-actions' },
           h('button', { className: 'wp-btn primary', onClick: () => fileRef.current && fileRef.current.click() }, T('本地上传 GIF / 图片 / MP4', 'Upload GIF / image / MP4')),
-          h('input', { ref: fileRef, type: 'file', accept: 'image/*,video/*', style: { display: 'none' }, onChange: (e) => pick(e, 'wall') })),
+          h('input', { ref: fileRef, type: 'file', accept: 'image/*,video/*', style: { display: 'none' }, onChange: (e) => pick(e, 'wall') }),
+          h('button', { className: 'wp-btn', onClick: () => anyRef.current && anyRef.current.click() }, T('从文件管理器挑（下载 / DCIM）', 'Pick from file manager (Downloads / DCIM)')),
+          h('input', { ref: anyRef, type: 'file', accept: '*/*', style: { display: 'none' }, onChange: (e) => pick(e, 'wall') })),
+        h('div', { className: 'wp-actions' },
+          PRESETS.map((p) => h('button', {
+            key: p.id, className: 'wp-chip',
+            onClick: async () => {
+              say(T('正在生成 ', 'Drawing ') + presetName(p.id) + ' ...')
+              const r = await applyPreset(p.id)
+              if (!r || !r.ok) { say(T('预设生成失败，换一个试试', 'Preset failed, try another')); return }
+              say(T('已换上 · ', 'Applied · ') + presetName(p.id))
+              setDiag(diagnose())
+            },
+          }, T(p.cn, p.en)))),
+        h('div', { className: 'wp-note' }, T('内置预设由程序当场绘制：既是原图，也不含任何第三方素材。', 'Built-in presets are drawn on the spot: original art, no third-party assets.')),
         bus.media
           ? h('div', { className: 'wp-file' },
             T('正在用 ', 'Now showing ') + (bus.mediaIndex + 1) + '/' + bus.playlist.length + ' · ' +
@@ -3578,6 +3846,8 @@ html.dshwp-halo body{text-shadow:var(--wp-halo,none)}
       nativeLook: applyNativeLook,
       replay: playIntro,
       upload: (file) => setLocal(file),
+      applyPreset: (id) => applyPreset(id),
+      presets: () => PRESETS.map((p) => p.id),
       uploadIntro: (file) => setIntroFile(file),
       addIntros: (files) => addIntroFiles(files),
       introCount: () => bus.introList.length,
