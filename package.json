@@ -58,8 +58,8 @@
     "test": "node tests/render.test.mjs"
   },
   "devDependencies": {
-    "jsdom": "^24.0.0",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "jsdom": "^31.0.1",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
   }
 }
