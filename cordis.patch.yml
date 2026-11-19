@@ -1,0 +1,3 @@
+- insert:
+    - id: live-wallpaper
+      name: '@local/live-wallpaper'
