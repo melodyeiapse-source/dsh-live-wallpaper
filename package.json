@@ -53,7 +53,7 @@
     "anime"
   ],
   "engines": {
-    "node": ">=18"
+    "node": ">=22"
   },
   "scripts": {
     "test": "node tests/render.test.mjs"
