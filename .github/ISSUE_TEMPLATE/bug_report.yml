@@ -1,0 +1,49 @@
+name: 问题反馈
+description: 壁纸不显示、卡顿、面板异常等
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢反馈。请尽量把下面填全，否则很难复现。
+        控制台报错请按 F12 → Console，截图或粘贴文本都行。
+  - type: input
+    id: version
+    attributes:
+      label: 插件版本
+      description: 设置卡顶部或 package.json 里的版本号
+      placeholder: 0.2.0
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: 运行环境
+      description: 浏览器 / WebView 版本，操作系统，桌面还是手机
+      placeholder: Chrome 128 / Android 15 / 手机网页版
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: 问题描述
+      description: 具体现象，越具体越好
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      value: |
+        1. 打开网页版
+        2. 点「壁纸」
+        3. ...
+    validations:
+      required: false
+  - type: textarea
+    id: console
+    attributes:
+      label: 控制台输出（可选）
+      render: shell
+    validations:
+      required: false

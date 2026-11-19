@@ -103,3 +103,15 @@ tests/render.test.mjs  jsdom 回归测试
 - 想商用请联系作者单独授权
 
 简单说：**随便用，必须开源，不许卖钱。**
+
+## 项目状态
+
+![test](https://github.com/melodyeiapse-source/dsh-live-wallpaper/actions/workflows/test.yml/badge.svg)
+![license](https://img.shields.io/badge/license-AGPL--3.0%20%2B%20non--commercial-orange)
+
+- 194 条 jsdom 断言，CI 在每次 push 时自动跑
+- 截图请见 [docs/screenshots](docs/screenshots/)（欢迎补充实机效果图）
+
+## 参与
+
+见 [CONTRIBUTING.md](CONTRIBUTING.md)。反馈问题请用 Issue 模板，附上浏览器版本与控制台输出。
