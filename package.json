@@ -17,7 +17,8 @@
     "locale/*.json",
     "icon.svg",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "NOTICE.md"
   ],
   "dsh": {
     "bundle": {
@@ -31,7 +32,7 @@
       ]
     }
   },
-  "license": "MIT",
+  "license": "SEE LICENSE IN NOTICE.md",
   "author": "dsh-live-wallpaper contributors",
   "repository": {
     "type": "git",
