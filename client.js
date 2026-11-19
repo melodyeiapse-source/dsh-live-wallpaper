@@ -202,7 +202,7 @@ html.dshwp-halo body{text-shadow:var(--wp-halo,none)}
 .dshwp-pill-dot{width:8px;height:8px;border-radius:50%;background:#2dd4bf;box-shadow:0 0 10px #2dd4bf}
 `
 
-    const bus = { state: Object.assign({}, DEFAULTS), media: null, playlist: [], mediaIndex: 0, intro: null, introList: [], introIndex: -1, history: [], audioBlob: null, audioClip: null, audioName: '', listeners: new Set() }
+    const bus = { state: Object.assign({}, DEFAULTS), media: null, playlist: [], mediaIndex: 0, intro: null, introList: [], introIndex: -1, history: [], audioBlob: null, audioClip: null, audioName: '', audioList: [], audioIndex: -1, listeners: new Set() }
     let hasSavedState = false
     try {
       const raw = localStorage.getItem(STORE_KEY)
@@ -733,23 +733,97 @@ html.dshwp-halo body{text-shadow:var(--wp-halo,none)}
       },
     }
 
+    // ---- 音频列表：可以加多首、点名字切换、逐首删掉（和启动素材同一套交互）----
+    let audioWriteChain = Promise.resolve()
+    function persistAudioList() {
+      const snapshot = {
+        list: bus.audioList.map((it) => ({ id: it.id, name: it.name, blob: it.blob })),
+        index: bus.audioIndex,
+      }
+      audioWriteChain = audioWriteChain.then(() => putRecord('audioList', snapshot)).catch(() => {})
+      return audioWriteChain
+    }
+    async function decodeAudioFile(file) {
+      const AC = window.AudioContext || window.webkitAudioContext
+      if (!AC) throw new Error(T('不支持 Web Audio', 'Web Audio unavailable'))
+      const tmp = new AC()
+      try {
+        return await tmp.decodeAudioData(await file.arrayBuffer())
+      } finally {
+        try { tmp.close() } catch (e) {}
+      }
+    }
+    function syncAudioCurrent() {
+      const it = bus.audioList[bus.audioIndex]
+      if (!it) {
+        bus.audioClip = null
+        bus.audioBlob = null
+        bus.audioName = ''
+        return
+      }
+      bus.audioClip = it.clip || null
+      bus.audioBlob = it.blob
+      bus.audioName = it.name
+    }
+    function restartPulseIfNeeded() {
+      if (!AudioPulse.active) return
+      AudioPulse.stop()
+      if (bus.state.audio) setTimeout(() => { try { AudioPulse.start() } catch (e) {} }, 60)
+    }
+    async function addAudioFiles(files) {
+      let n = 0
+      let firstIndex = -1
+      let err = ''
+      const list = Array.from(files || [])
+      for (const f of list) {
+        if (!f) continue
+        if (f.size > 40 * 1024 * 1024) { err = T('音频最大 40MB', 'Audio up to 40MB'); continue }
+        try {
+          const clip = await decodeAudioFile(f)
+          if (firstIndex < 0) firstIndex = bus.audioList.length
+          bus.audioList.push({ id: uid(), name: f.name || 'audio', size: f.size, blob: f, clip })
+          n++
+        } catch (e) {
+          err = T('这个音频解不开，换个 MP3 试试', 'Cannot decode this audio')
+        }
+      }
+      if (!n) return { ok: false, error: err || T('没有可用音频', 'Nothing usable') }
+      bus.audioIndex = firstIndex
+      syncAudioCurrent()
+      await persistAudioList()
+      set({ audioSource: 'file', audio: true })
+      restartPulseIfNeeded()
+      return { ok: true, count: n }
+    }
     async function setAudioFile(file) {
       if (!file) return { ok: false, error: T('没有选到文件', 'No file picked') }
-      if (file.size > 40 * 1024 * 1024) return { ok: false, error: T('音频最大 40MB', 'Audio up to 40MB') }
-      const AC = window.AudioContext || window.webkitAudioContext
-      if (!AC) return { ok: false, error: T('不支持 Web Audio', 'Web Audio unavailable') }
-      try {
-        const tmp = new AC()
-        bus.audioClip = await tmp.decodeAudioData(await file.arrayBuffer())
-        try { tmp.close() } catch {}
-        bus.audioBlob = file
-        bus.audioName = file.name || 'audio'
-        putRecord('audio', { blob: file, name: bus.audioName })
-        set({ audioSource: 'file', audio: true })
-        return { ok: true }
-      } catch (e) {
-        return { ok: false, error: T('这个音频解不开，换个 MP3 试试', 'Cannot decode this audio') }
+      return addAudioFiles([file])
+    }
+    async function switchAudioTo(i) {
+      if (!bus.audioList[i]) return false
+      bus.audioIndex = i
+      syncAudioCurrent()
+      await persistAudioList()
+      restartPulseIfNeeded()
+      emit()
+      return true
+    }
+    async function removeAudioAt(i) {
+      if (!bus.audioList[i]) return false
+      bus.audioList.splice(i, 1)
+      if (!bus.audioList.length) {
+        bus.audioIndex = -1
+        syncAudioCurrent()
+        set({ audio: false })
+      } else {
+        if (bus.audioIndex > i) bus.audioIndex -= 1
+        else if (bus.audioIndex >= bus.audioList.length) bus.audioIndex = bus.audioList.length - 1
+        syncAudioCurrent()
       }
+      await persistAudioList()
+      restartPulseIfNeeded()
+      emit()
+      return true
     }
 
 
@@ -3037,10 +3111,21 @@ html.dshwp-halo body{text-shadow:var(--wp-halo,none)}
           name: h.name, kind: h.kind, size: h.size, blob: h.blob, alias: h.alias || '',
         }))
       }).catch(() => {})
-      Promise.all([getRecord('playlist'), getRecord('current'), getRecord('audio')]).then(([plRec, rec, audioRec]) => {
-        if (audioRec && audioRec.blob) {
-          bus.audioBlob = audioRec.blob
-          bus.audioName = audioRec.name || 'audio'
+      Promise.all([getRecord('playlist'), getRecord('current'), getRecord('audio'), getRecord('audioList')]).then(([plRec, rec, audioRec, audioListRec]) => {
+        if (audioListRec && audioListRec.list && audioListRec.list.length) {
+          const items = audioListRec.list.filter((it) => it && it.blob).map((it) => ({
+            id: it.id || uid(), name: it.name || 'audio', size: (it.blob && it.blob.size) || 0, blob: it.blob, clip: null,
+          }))
+          if (items.length) {
+            bus.audioList = items
+            const idx = Math.round(Number(audioListRec.index))
+            bus.audioIndex = Math.max(0, Math.min(items.length - 1, isNaN(idx) ? 0 : idx))
+            syncAudioCurrent()
+          }
+        } else if (audioRec && audioRec.blob) {
+          bus.audioList = [{ id: uid(), name: audioRec.name || 'audio', size: audioRec.blob.size || 0, blob: audioRec.blob, clip: null }]
+          bus.audioIndex = 0
+          syncAudioCurrent()
         }
         if (plRec && plRec.list && plRec.list.length) {
           bus.playlist = plRec.list.filter((i) => i && i.blob).map((i) => ({
@@ -3201,11 +3286,12 @@ html.dshwp-halo body{text-shadow:var(--wp-halo,none)}
         say(r.ok ? T('贴纸放上了，拖它挪位置', 'Sticker placed, drag it') : r.error)
       }
       const pickAudio = async (e) => {
-        const f = e.target.files && e.target.files[0]
+        const files = Array.from(e.target.files || [])
         e.target.value = ''
-        if (!f) return
-        const r = await setAudioFile(f)
-        say(r.ok ? T('音频已载入，律动已开', 'Audio loaded, pulse on') : r.error)
+        if (!files.length) return
+        say(T('正在解码 ', 'Decoding ') + files.length + T(' 首音频…', ' audio file(s)…'))
+        const r = await addAudioFiles(files)
+        say(r.ok ? T('加入了 ', 'Added ') + r.count + T(' 首，律动已开', ' file(s), pulse on') : r.error)
       }
       const pick = async (e, kind) => {
         const f = e.target.files && e.target.files[0]
@@ -3534,9 +3620,22 @@ html.dshwp-halo body{text-shadow:var(--wp-halo,none)}
         h(Chips, { label: T('音频律动', 'Audio pulse'), field: 'audioSource', items: [['mic', T('麦克风', 'Microphone')], ['file', T('音频文件（免麦克风）', 'Audio file')]] }),
         h('div', { className: 'wp-chips' },
           h('button', { className: 'wp-chip' + (s.audio ? ' on' : ''), onClick: () => set({ audio: !s.audio }) }, s.audio ? T('律动：开', 'Pulse: on') : T('律动：关', 'Pulse: off')),
-          h('button', { className: 'wp-chip', onClick: () => audioRef.current && audioRef.current.click() }, T('选音频', 'Pick audio')),
-          h('input', { ref: audioRef, type: 'file', accept: 'audio/*', style: { display: 'none' }, onChange: (e) => pickAudio(e) })),
-        bus.audioName ? h('div', { className: 'wp-file' }, '🎵 ' + bus.audioName) : null,
+          h('button', { className: 'wp-chip', onClick: () => audioRef.current && audioRef.current.click() }, T('加音频', 'Add audio')),
+          h('input', { ref: audioRef, type: 'file', accept: 'audio/*', multiple: true, style: { display: 'none' }, onChange: (e) => pickAudio(e) })),
+        bus.audioList.length ? h('div', { className: 'wp-file' },
+          T('共 ', 'Total ') + bus.audioList.length + T(' 首 · 点名字切过去，✕ 移除，可以一次加多首', ' · tap to switch, ✕ removes, multi-select allowed')) : null,
+        bus.audioList.length ? h('div', { className: 'wp-list' }, bus.audioList.map((it, i) => h('div', {
+          className: 'wp-item wp-media-item' + (i === bus.audioIndex ? ' on' : ''), key: it.id || i,
+        },
+          h('button', {
+            className: 'wp-item-name',
+            onClick: () => { switchAudioTo(i); say(T('现在放：', 'Now playing: ') + it.name) },
+          }, (i === bus.audioIndex ? '▶ ' : '') + T('音乐 ', 'Audio ') + it.name),
+          h('button', {
+            className: 'wp-item-x', 'aria-label': T('移除', 'Remove'),
+            onClick: () => { removeAudioAt(i); say(T('已移除一首音频', 'Removed one audio')) },
+          }, '✕')))) : h('div', { className: 'wp-note' },
+          T('还没有音频：点「加音频」可以一次选多首 MP3 / WAV / M4A，列表里能切、能删。', 'No audio yet: add MP3 / WAV / M4A, switch and delete from the list.')),
         AudioPulse.pending ? h('div', { className: 'wp-note' }, T('正在申请麦克风…（系统可能弹权限）', 'Asking for the microphone…')) : null,
         s.audio ? h('div', { className: 'wp-note' }, T('电平 ', 'Level ') + Math.round(AudioPulse.level * 100) + '%') : null,
         AudioPulse.error ? h('div', { className: 'wp-note', style: { color: '#ffb4a2' } }, AudioPulse.error) : null,
@@ -3860,6 +3959,11 @@ html.dshwp-halo body{text-shadow:var(--wp-halo,none)}
       removeIntro: (i) => removeIntroAt(i),
       replayIntro: () => playIntro(),
       setAudioFile: (f) => setAudioFile(f),
+      addAudio: (files) => addAudioFiles(files),
+      audioList: () => bus.audioList.map((it) => it.name),
+      audioIndex: () => bus.audioIndex,
+      switchAudioTo: (i) => switchAudioTo(i),
+      removeAudio: (i) => removeAudioAt(i),
       clearIntro: () => {
         for (const i of bus.introList) { try { URL.revokeObjectURL(i.url) } catch {} }
         bus.introList = []; bus.intro = null; bus.introIndex = -1

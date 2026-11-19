@@ -330,6 +330,11 @@ check('三套内置预设按钮都在', presetBtns.length === 3, String(presetBt
 check('调试接口暴露预设列表', JSON.stringify(window.__dshwp.presets()) === JSON.stringify(['aurora', 'neon', 'autumn']),
   JSON.stringify(window.__dshwp.presets()))
 
+// 音频律动：列表化（能加多首、能删）
+const audioChip = Array.from(document.querySelectorAll('#dshwp-card .wp-chip')).filter((b) => b.textContent === '加音频')
+check('音频区有「加音频」入口', audioChip.length === 1, String(audioChip.length))
+check('音频列表接口可用', Array.isArray(window.__dshwp.audioList()) && typeof window.__dshwp.removeAudio === 'function' && typeof window.__dshwp.addAudio === 'function')
+
 // 轮播列表：单张移除 + 历史
 window.__dshwp.set({ introMode: 'off' })
 await window.__dshwp.addFiles([
