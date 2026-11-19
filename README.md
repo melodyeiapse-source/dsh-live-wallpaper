@@ -6,6 +6,8 @@
 
 ![icon](icon.svg)
 
+![壁纸设置](docs/screenshots/01-wallpaper-panel.jpg)
+
 ## 功能
 
 | 分类 | 内容 |
@@ -21,6 +23,14 @@
 | 贴纸 | 支持 GIF / MP4 动态贴纸，可拖动，带漂浮 / 摇摆 / 呼吸动效 |
 | 画质 | 省电 / 均衡 / 极速三档，实时帧率显示，像素比上限 |
 | 音频律动 | 麦克风或本地音频驱动画面明暗（只在本机分析） |
+
+## 截图
+
+| 2D 粒子 | 面板总览 |
+| --- | --- |
+| ![粒子](docs/screenshots/02-particles.jpg) | ![总览](docs/screenshots/03-panel-overview.jpg) |
+
+![时段与扫光](docs/screenshots/04-schedules.jpg)
 
 ## 安装
 
